@@ -11,7 +11,10 @@ async def lifespan(app):
     yield
 
 app = FastAPI(title="KRYVON", lifespan=lifespan)
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=[
+    "http://localhost:5173",
+    "https://kryvon-frontend.vercel.app"
+], allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
 app.include_router(api_router)
 
 @app.get("/health")
