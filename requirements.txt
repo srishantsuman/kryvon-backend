@@ -8,3 +8,4 @@ python-jose
 pydantic
 pydantic-settings
 email-validator
+httpx
