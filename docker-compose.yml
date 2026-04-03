@@ -1,0 +1,83 @@
+version: "3.9"
+
+services:
+  # ── PostgreSQL ────────────────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: kryvon_postgres
+    environment:
+      POSTGRES_USER: kryvon_user
+      POSTGRES_PASSWORD: kryvon_pass
+      POSTGRES_DB: kryvon_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kryvon_user -d kryvon_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── FastAPI backend ───────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: kryvon_backend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      DATABASE_URL: postgresql://kryvon_user:kryvon_pass@postgres:5432/kryvon_db
+      SECRET_KEY: dev-secret-key-change-in-production-32chars
+      FRONTEND_URL: http://localhost:5173
+      ENVIRONMENT: development
+      # Fill these in for Google OAuth and email:
+      GOOGLE_CLIENT_ID: ""
+      GOOGLE_CLIENT_SECRET: ""
+      SMTP_HOST: smtp.gmail.com
+      SMTP_PORT: 587
+      SMTP_USER: ""
+      SMTP_PASSWORD: ""
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app   # Hot reload — code changes reflect immediately
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── React frontend ────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: kryvon_frontend
+    environment:
+      VITE_API_URL: http://localhost:8000/api/v1
+      VITE_GOOGLE_CLIENT_ID: ""
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules   # Preserve container node_modules
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # ── pgAdmin (optional DB viewer) ──────────────────────────────────
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: kryvon_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@kryvon.dev
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    profiles:
+      - tools   # Only starts with: docker compose --profile tools up
+
+volumes:
+  postgres_data:
