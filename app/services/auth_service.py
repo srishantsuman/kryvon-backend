@@ -29,6 +29,32 @@ def create_user(db: Session, user_in: UserCreate) -> User:
 
     print("STEP 1: before hashing")
 
+    hashed_password = get_password_hash(user_in.password[:72])
+
+    print("STEP 2: after hashing")
+
+    user = User(
+        email=user_in.email,
+        hashed_password=hashed_password,
+        full_name=user_in.full_name,
+        is_active=True
+    )
+
+    print("STEP 3: before db add")
+
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    print("STEP 4: done")
+
+    return user
+
+    if get_user_by_email(db, user_in.email):
+        raise HTTPException(status_code=409, detail="Email exists")
+
+    print("STEP 1: before hashing")
+
     safe_password = user_in.password[:72]
 
     hashed_password = get_password_hash(safe_password)
@@ -125,7 +151,7 @@ def verify_otp_and_reset(db: Session, email: str, otp: str, new_password: str) -
     if not verify_password(otp, user.otp_secret):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid OTP")
 
-    user.hashed_password = get_password_hash(new_password)
+    user.hashed_password = get_password_hash(new_password[:72])
     user.otp_secret = None
     user.otp_expires_at = None
     db.commit()
